@@ -318,6 +318,10 @@ local flySpeed = 32
 local connectionStorage = {}
 local optionElementsMap = {}
 
+local autoPowerActive = false
+local autoCarryActive = false
+local autoReachActive = false
+
 local function showNotification(title, iconId, duration)
 	local notificationScreenGui = Instance.new("ScreenGui")
 	notificationScreenGui.Name = "NotificationScreenGui"
@@ -847,8 +851,8 @@ local function createSpecialButton(name, tabName, callback)
 end
 
 tabs["Main"] = createTab("Main", "139357095045310", UDim2.new(0.08, 0, 0, 0))
-tabs["Farm"] = createTab("Farm", "102352181267949", UDim2.new(0.08, 0, 0.16, 0))
-tabs["Buy"] = createTab("Buy ALL", "110805385284419", UDim2.new(0.08, 0, 0.32, 0))
+tabs["Auto Buy"] = createTab("Auto Buy", "110805385284419", UDim2.new(0.08, 0, 0.16, 0))
+tabs["Farm"] = createTab("Farm", "102352181267949", UDim2.new(0.08, 0, 0.32, 0))
 tabs["Config"] = createTab("Config", "114794077382466", UDim2.new(0.08, 0, 0.48, 0))
 tabs["Credits"] = createTab("Credits", "99243311837005", UDim2.new(0.08, 0, 0.64, 0))
 
@@ -1093,9 +1097,82 @@ createOption("Auto Secret", false, "Farm")
 createOption("Auto Ancient", false, "Farm")
 createOption("Auto Divine", false, "Farm")
 
-createOption("Auto Power", false, "Buy")
-createOption("Auto Carry", false, "Buy")
-createOption("Auto Reach", false, "Buy")
+createOption("Auto Power", false, "Auto Buy", function(state)
+    autoPowerActive = state
+    if state then
+        task.spawn(function()
+            local RS = game:GetService("ReplicatedStorage")
+            local powerSequence = {50, 25, 1}
+            local sequenceIndex = 1
+            
+            while autoPowerActive do
+                pcall(function()
+                    local args = {
+                        [1] = "Power",
+                        [2] = powerSequence[sequenceIndex]
+                    }
+                    RS:WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("StatUpgradeService"):WaitForChild("RF"):WaitForChild("Upgrade"):InvokeServer(unpack(args))
+                end)
+                
+                sequenceIndex = sequenceIndex + 1
+                if sequenceIndex > #powerSequence then
+                    sequenceIndex = 1
+                end
+                
+                task.wait(0.5)
+            end
+        end)
+    end
+end)
+
+createOption("Auto Carry", false, "Auto Buy", function(state)
+    autoCarryActive = state
+    if state then
+        task.spawn(function()
+            local RS = game:GetService("ReplicatedStorage")
+            
+            while autoCarryActive do
+                pcall(function()
+                    local args = {
+                        [1] = "GrabAmount",
+                        [2] = 1
+                    }
+                    RS:WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("StatUpgradeService"):WaitForChild("RF"):WaitForChild("Upgrade"):InvokeServer(unpack(args))
+                end)
+                
+                task.wait(0.5)
+            end
+        end)
+    end
+end)
+
+createOption("Auto Reach", false, "Auto Buy", function(state)
+    autoReachActive = state
+    if state then
+        task.spawn(function()
+            local RS = game:GetService("ReplicatedStorage")
+            local reachSequence = {50, 25, 1}
+            local sequenceIndex = 1
+            
+            while autoReachActive do
+                pcall(function()
+                    local args = {
+                        [1] = "Reach_Distance",
+                        [2] = reachSequence[sequenceIndex]
+                    }
+                    RS:WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("StatUpgradeService"):WaitForChild("RF"):WaitForChild("Upgrade"):InvokeServer(unpack(args))
+                end)
+                
+                sequenceIndex = sequenceIndex + 1
+                if sequenceIndex > #reachSequence then
+                    sequenceIndex = 1
+                end
+                
+                task.wait(0.5)
+            end
+        end)
+    end
+end)
 
 createSpecialButton("Auto Rejoin", "Config", function()
     TeleportService:Teleport(game.PlaceId)
@@ -1286,10 +1363,6 @@ task.spawn(function()
                 end
             end)
         end
-
-        HandleStatUpgrade("Power", "Auto Power")
-        HandleStatUpgrade("GrabAmount", "Auto Carry")
-        HandleStatUpgrade("Reach_Distance", "Auto Reach")
 
         pcall(function()
             local ActiveBRs = workspace:FindFirstChild("ActiveBrainrots")
