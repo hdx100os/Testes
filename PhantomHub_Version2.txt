@@ -848,9 +848,8 @@ end
 
 tabs["Main"] = createTab("Main", "139357095045310", UDim2.new(0.08, 0, 0, 0))
 tabs["Farm"] = createTab("Farm", "102352181267949", UDim2.new(0.08, 0, 0.16, 0))
-tabs["Buy"] = createTab("Buy ALL", "110805385284419", UDim2.new(0.08, 0, 0.32, 0))
-tabs["Config"] = createTab("Config", "114794077382466", UDim2.new(0.08, 0, 0.48, 0))
-tabs["Credits"] = createTab("Credits", "99243311837005", UDim2.new(0.08, 0, 0.64, 0))
+tabs["Config"] = createTab("Config", "114794077382466", UDim2.new(0.08, 0, 0.32, 0))
+tabs["Credits"] = createTab("Credits", "99243311837005", UDim2.new(0.08, 0, 0.48, 0))
 
 createOption("Auto Collect Money", false, "Main", function(state)
     getgenv().AutoCollect = state
@@ -1093,10 +1092,6 @@ createOption("Auto Secret", false, "Farm")
 createOption("Auto Ancient", false, "Farm")
 createOption("Auto Divine", false, "Farm")
 
-createOption("Auto Power", false, "Buy")
-createOption("Auto Carry", false, "Buy")
-createOption("Auto Reach", false, "Buy")
-
 createSpecialButton("Auto Rejoin", "Config", function()
     TeleportService:Teleport(game.PlaceId)
 end)
@@ -1117,7 +1112,9 @@ createSlider("Fly Speed", 1, 500, 32, "Config", function(value)
     flySpeed = value
 end)
 createOption("Noclip", false, "Config")
-createOption("Enable Shift Lock", false, "Config")
+createOption("Enable Shift Lock", false, "Config", function(state)
+    getgenv().ShiftLockEnabled = state
+end)
 
 createInfoBox("By: Cleiton10HDx", "Script created by this user.", "Credits", false)
 createInfoBox("Discord", "My Discord Server", "Credits", true, "https://discord.gg/72P6NhC5Pf")
@@ -1284,10 +1281,6 @@ task.spawn(function()
                 end
             end)
         end
-
-        HandleStatUpgrade("Power", "Auto Power")
-        HandleStatUpgrade("GrabAmount", "Auto Carry")
-        HandleStatUpgrade("Reach_Distance", "Auto Reach")
 
         pcall(function()
             local ActiveBRs = workspace:FindFirstChild("ActiveBrainrots")
@@ -1512,87 +1505,106 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
-local shiftLockSystemEnabled = false
+local shiftLockScreenGui = nil
+local shiftLockIcon = nil
 local shiftLockActive = false
-local shiftLockGui = nil
-local shiftLockBtn = nil
 local shiftLockConnection = nil
 
-local function getCharacterForShiftLock()
-    local character = Player.Character or Player.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-    local root = character:WaitForChild("HumanoidRootPart")
-    return character, humanoid, root
-end
-
-local function enableShiftLockSystem()
-    local character, humanoid, root = getCharacterForShiftLock()
+local function createShiftLockUI()
+    if shiftLockScreenGui then return end
     
-    shiftLockActive = true
-    if shiftLockBtn then
-        shiftLockBtn.Image = "rbxassetid://139211296111194"
-    end
+    shiftLockScreenGui = Instance.new("ScreenGui")
+    shiftLockScreenGui.Name = "ShiftLockScreenGui"
+    shiftLockScreenGui.ResetOnSpawn = false
+    shiftLockScreenGui.DisplayOrder = 999998
+    shiftLockScreenGui.Parent = PlayerGui
     
-    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    shiftLockIcon = Instance.new("ImageLabel")
+    shiftLockIcon.Name = "ShiftLockIcon"
+    shiftLockIcon.Size = UDim2.new(0.05, 0, 0.1, 0)
+    shiftLockIcon.Position = UDim2.new(0.95, 0, 0.68, 0)
+    shiftLockIcon.BackgroundTransparency = 1
+    shiftLockIcon.Image = "rbxassetid://105987953182009"
+    shiftLockIcon.Parent = shiftLockScreenGui
+    shiftLockIcon.ZIndex = 999998
     
-    humanoid.AutoRotate = false
-    
-    if shiftLockConnection then shiftLockConnection:Disconnect() end
-    
-    shiftLockConnection = RunService.RenderStepped:Connect(function()
-        if shiftLockActive and shiftLockSystemEnabled then
-            local camera = workspace.CurrentCamera
-            local lookVector = camera.CFrame.LookVector
-            local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z)
-            
-            if flatLook.Magnitude > 0.001 then
-                flatLook = flatLook.Unit
-                root.CFrame = CFrame.lookAt(root.Position, root.Position + flatLook)
-            end
+    shiftLockIcon.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            shiftLockActive = not shiftLockActive
+            shiftLockIcon.Image = shiftLockActive and "rbxassetid://139211296111194" or "rbxassetid://105987953182009"
         end
     end)
 end
 
-local function disableShiftLockSystem()
-    local character, humanoid, root = getCharacterForShiftLock()
-    
-    shiftLockActive = false
-    if shiftLockBtn then
-        shiftLockBtn.Image = "rbxassetid://105987953182009"
+local function destroyShiftLockUI()
+    if shiftLockScreenGui then
+        shiftLockScreenGui:Destroy()
+        shiftLockScreenGui = nil
+        shiftLockIcon = nil
     end
-    
-    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-    
-    humanoid.AutoRotate = true
-    
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        local shiftLockEnabled = optionStates["Enable Shift Lock"]
+        if type(shiftLockEnabled) == "function" then shiftLockEnabled = shiftLockEnabled() end
+        
+        if shiftLockEnabled and not shiftLockScreenGui then
+            createShiftLockUI()
+        elseif not shiftLockEnabled and shiftLockScreenGui then
+            destroyShiftLockUI()
+            shiftLockActive = false
+            if shiftLockConnection then
+                shiftLockConnection:Disconnect()
+                shiftLockConnection = nil
+            end
+        end
+        
+        if shiftLockScreenGui and shiftLockActive then
+            local char = LP.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                local camera = workspace.CurrentCamera
+                
+                if humanoid and root then
+                    humanoid.AutoRotate = false
+                    
+                    if not shiftLockConnection then
+                        shiftLockConnection = RunService.RenderStepped:Connect(function()
+                            if shiftLockActive and shiftLockScreenGui then
+                                local camDir = camera.CFrame.LookVector
+                                local flatLook = Vector3.new(camDir.X, 0, camDir.Z)
+                                
+                                if flatLook.Magnitude > 0.001 then
+                                    flatLook = flatLook.Unit
+                                    root.CFrame = CFrame.lookAt(root.Position, root.Position + flatLook)
+                                end
+                            end
+                        end)
+                    end
+                end
+            end
+        elseif shiftLockScreenGui and not shiftLockActive then
+            if shiftLockConnection then
+                shiftLockConnection:Disconnect()
+                shiftLockConnection = nil
+            end
+            
+            local char = LP.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.AutoRotate = true
+                end
+            end
+        end
+    end
+end)
+
+Player.CharacterAdded:Connect(function()
     if shiftLockConnection then
         shiftLockConnection:Disconnect()
         shiftLockConnection = nil
-    end
-end
-
-for _, element in pairs(tabs["Config"].elements) do
-    if element.Name == "Enable Shift Lock" then
-        local SwitchBG = element:FindFirstChildOfClass("TextButton")
-        if SwitchBG then
-            local originalConnection = SwitchBG.Activated:Connect(function()
-                if optionStates["Enable Shift Lock"] then
-                    shiftLockSystemEnabled = true
-                    enableShiftLockSystem()
-                else
-                    shiftLockSystemEnabled = false
-                    disableShiftLockSystem()
-                end
-            end)
-        end
-    end
-end
-
-Player.CharacterAdded:Connect(function()
-    task.wait(1)
-    if shiftLockActive and shiftLockSystemEnabled then
-        enableShiftLockSystem()
     end
 end)
