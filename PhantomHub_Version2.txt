@@ -8,7 +8,6 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 
--- ==================== VERIFICAÇÃO DE ID DO JOGO ====================
 local CORRECT_GAME_ID = 114640202062357
 local currentGameId = game.PlaceId
 local gameIdCheckDone = false
@@ -1575,7 +1574,7 @@ local function disableShiftLockSystem()
 end
 
 for _, element in pairs(tabs["Config"].elements) do
-    if element.Name == "26" then
+    if element.Name == "Enable Shift Lock" then
         local SwitchBG = element:FindFirstChildOfClass("TextButton")
         if SwitchBG then
             local originalConnection = SwitchBG.Activated:Connect(function()
